@@ -1,0 +1,8 @@
+# 보안 키 및 토큰 파일 제외
+.env
+token.txt
+
+# 수집된 데이터 및 파이썬 캐시 제외
+data/
+__pycache__/
+*.pyc
