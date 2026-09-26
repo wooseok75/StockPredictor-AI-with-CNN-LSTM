@@ -9,11 +9,11 @@ load_dotenv()
 
 APP_KEY = os.getenv("APP_KEY")
 APP_SECRET = os.getenv("APP_SECRET")
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BASE_URL = 'https://openapi.koreainvestment.com:9443'
 
 def get_access_token(): # 토큰 발급 함수
-    token_file = os.path.join(BASE_DIR, 'token.txt')
+    token_file = os.path.join(ROOT_DIR, 'token.txt')
 
     # 기존 토큰 가져오기
     if os.path.exists(token_file): 
@@ -44,7 +44,7 @@ def get_access_token(): # 토큰 발급 함수
         print(res.status_code)
         return None
 
-def get_1min_df(token, target_date): # 1분봉 데이터 수집하는 함수
+def get_1min_data(token, target_date): # 1분봉 데이터 수집하는 함수
     all_dfs = []
 
     url = f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-time-dailychartprice"
@@ -129,7 +129,7 @@ if __name__ == '__main__':
 
     for target_date in date_list:
         try:
-            df_1min = get_1min_df(token, target_date)
+            df_1min = get_1min_data(token, target_date)
 
             if df_1min is None or df_1min.empty:
                 print(f"{target_date}의 값이 없으므로 넘어갑니다.")
@@ -155,9 +155,9 @@ if __name__ == '__main__':
     if full_df:
         master_df = pd.concat(full_df, ignore_index = True)
 
-        save_dir = os.path.join(BASE_DIR, 'data')
+        save_dir = os.path.join(ROOT_DIR, 'data')
         os.makedirs(save_dir, exist_ok = True)
-        file_path = os.path.join(save_dir, '5min_df.csv')
+        file_path = os.path.join(save_dir, 'raw_data.csv')
 
         master_df.to_csv(file_path, index = False, encoding = 'UTF-8')
 
