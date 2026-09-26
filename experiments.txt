@@ -1,0 +1,43 @@
+[Experiment 001]
+
+Model
+- CNN + LSTM
+- Conv1D filters: 32, 64
+- LSTM units: 64
+- Dense: 64
+- Dropout: 0.3
+
+Data
+- 5분봉
+- Window size: 10
+- Features: (Open, Close, High, Low, Volume)
+
+Training
+- Optimizer: Adam
+- Learning rate: 0.001
+- Batch size: 64
+- Epochs: 50
+
+Results
+- Validation Accuracy: 48.18%
+- Validation AUC: 0.5099
+- Test Accuracy: 50.92%
+- Test AUC: 0.4984
+
+Notes
+- 모델이 상승/하락을 효과적으로 구분하지 못하는 것으로 확인됨.
+
+
+[Experiment 002]
+
+Changed
+- Features: OHLCV → OHLCV return
+
+Results
+- Validation Accuracy: 55.85%
+- Validation AUC: 0.6066
+- Test Accuracy: 55.33%
+- Test AUC: 0.5837
+
+Notes
+- 절대값 OHLCV 대비 변화율 feature 사용 시 성능 개선.

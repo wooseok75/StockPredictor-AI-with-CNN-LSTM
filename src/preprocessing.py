@@ -10,7 +10,7 @@ ROOT_DIR = os.path.dirname(SRC_DIR)
 DATA_DIR = os.path.join(ROOT_DIR, 'data')
 RAW_DATA_PATH = os.path.join(DATA_DIR, 'raw_data.csv')
 
-FEATURES = ["Open", "Close", "High", "Low", "Volume"]
+FEATURES = ["Open_return", "Close_return", "High_return", "Low_return", "Volume_return"]
 
 WINDOW_SIZE = 10
 
@@ -57,20 +57,9 @@ def remove_incomplete_days(df): # 불완전한 데이터 지우는 함수
 def split_train_val_test(df): # 데이터셋 분할 함수
     print("[데이터셋 분할 중..]\n")
 
-    train_df = df[
-        (df['DateTime'] >= '2025-09-01') &
-        (df['DateTime'] < '2026-05-01')
-    ].copy()
-
-    val_df = df[
-        (df['DateTime'] >= '2026-05-01') &
-        (df['DateTime'] < '2026-07-01')
-    ].copy()
-
-    test_df = df[
-        (df['DateTime'] >= '2026-07-01') &
-        (df['DateTime'] < '2026-09-22')
-    ].copy()
+    train_df = df[(df['DateTime'] >= '2025-09-01') & (df['DateTime'] < '2026-05-01')].copy()
+    val_df = df[(df['DateTime'] >= '2026-05-01') & (df['DateTime'] < '2026-07-01')].copy()
+    test_df = df[(df['DateTime'] >= '2026-07-01') & (df['DateTime'] < '2026-09-22')].copy()
 
     print(f"(train셋 개수: {train_df.shape[0]})")
     print(f"(val셋 개수: {val_df.shape[0]})")
@@ -79,21 +68,42 @@ def split_train_val_test(df): # 데이터셋 분할 함수
 
     return train_df, val_df, test_df
 
-def Scaling(train_df, val_df, test_df): # 표준화 시키는 함수
+def create_features(train_df, val_df, test_df):
+    print("[feature 생성 중...]\n")
+
+    for data in [train_df, val_df, test_df]:
+        data["Open_return"] = data.groupby(data["DateTime"].dt.date)["Open"].pct_change()
+        data["Close_return"] = data.groupby(data["DateTime"].dt.date)["Close"].pct_change()
+        data["High_return"] = data.groupby(data["DateTime"].dt.date)["High"].pct_change()
+        data["Low_return"] = data.groupby(data["DateTime"].dt.date)["Low"].pct_change()
+        data["Volume_return"] = data.groupby(data["DateTime"].dt.date)["Volume"].pct_change()
+
+    for data in [train_df, val_df, test_df]:
+        data.dropna(subset=FEATURES, inplace=True)
+        data.reset_index(drop=True, inplace=True)
+
+    print("[feature 생성 완료!]\n")
+
+    return train_df, val_df, test_df
+
+def scaling(train_df, val_df, test_df):
     print("[표준화 중..]\n")
 
-    scaler = StandardScaler()
-    scaler.fit(train_df[FEATURES])
-    
     train_df[FEATURES] = train_df[FEATURES].astype(float)
     val_df[FEATURES] = val_df[FEATURES].astype(float)
     test_df[FEATURES] = test_df[FEATURES].astype(float)
 
+    scaler = StandardScaler()
+
+    # Train으로만 기준 계산
+    scaler.fit(train_df[FEATURES])
+
+    # 동일한 scaler 적용
     train_df.loc[:, FEATURES] = scaler.transform(train_df[FEATURES])
     val_df.loc[:, FEATURES] = scaler.transform(val_df[FEATURES])
     test_df.loc[:, FEATURES] = scaler.transform(test_df[FEATURES])
 
-    scaler_path = os.path.join(DATA_DIR, 'scaler.pkl')
+    scaler_path = os.path.join(DATA_DIR, "scaler.pkl")
     joblib.dump(scaler, scaler_path)
 
     print(f"{train_df.head()}\n")
@@ -107,18 +117,23 @@ def create_sequences(df):
     X = []
     y = []
 
-    for date, group in df.groupby(df['DateTime'].dt.date):
-        for i in range(len(group) - WINDOW_SIZE):
-            window = group.iloc[i : i + WINDOW_SIZE]
+    for date, group in df.groupby(df["DateTime"].dt.date):
 
-            current_close = window.iloc[-1]['Close']
-            next_close = group.iloc[i + WINDOW_SIZE]['Close']
-            
+        group = group.sort_values("DateTime").reset_index(drop=True)
+
+        for i in range(len(group) - WINDOW_SIZE):
+
+            window = group.iloc[i:i + WINDOW_SIZE]
+
+            # target은 원래 Close로 계산
+            current_close = window.iloc[-1]["Close"]
+            next_close = group.iloc[i + WINDOW_SIZE]["Close"]
+
             if current_close < next_close:
                 target = 1
             else:
                 target = 0
-            
+
             X.append(window[FEATURES].values)
             y.append(target)
 
@@ -143,7 +158,9 @@ if __name__ == '__main__':
 
     train_df, val_df, test_df = split_train_val_test(complete_days_df)
 
-    train_df, val_df, test_df = Scaling(train_df, val_df, test_df)
+    train_df, val_df, test_df = create_features(train_df, val_df, test_df)
+
+    train_df, val_df, test_df = scaling(train_df, val_df, test_df)
 
     X_train, y_train = create_sequences(train_df)
     X_val, y_val = create_sequences(val_df)

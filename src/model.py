@@ -7,7 +7,7 @@ from tensorflow.keras.layers import Input, Conv1D, LSTM, Dense, Dropout
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 
-from sklearn.metrics import confusion_matrix, classification_report
+from sklearn.metrics import confusion_matrix
 
 
 SRC_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -98,7 +98,7 @@ cm = confusion_matrix(y_test, y_pred)
 print(cm)
 
 # 모델 저장
-model_path = os.path.join(MODEL_DIR, "model1.keras")
+model_path = os.path.join(MODEL_DIR, "model.keras")
 
 model.save(model_path)
 
