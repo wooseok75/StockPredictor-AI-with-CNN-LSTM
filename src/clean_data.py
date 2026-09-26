@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 
-# df 들고오기
+# 데이터 들고오기
 src_dir = os.path.dirname(os.path.abspath(__file__))
 root_dir = os.path.dirname(src_dir)
 data_dir = os.path.join(root_dir, 'data')
@@ -9,7 +9,7 @@ df_path = os.path.join(data_dir, '5min_df.csv')
 
 df = pd.read_csv(df_path)
 
-# df 전처리
+# 데이터 전처리
 df['DateTime'] = pd.to_datetime(df['DateTime'])
 df['Date'] = df['DateTime'].dt.date
 

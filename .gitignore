@@ -6,3 +6,6 @@ token.txt
 data/
 __pycache__/
 *.pyc
+
+ideas.txt
+test.py
