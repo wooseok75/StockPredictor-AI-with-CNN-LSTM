@@ -5,6 +5,7 @@ import requests
 import json
 import pandas as pd
 
+
 load_dotenv()
 
 APP_KEY = os.getenv("APP_KEY")

@@ -4,6 +4,7 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 import joblib
 
+
 SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(SRC_DIR)
 DATA_DIR = os.path.join(ROOT_DIR, 'data')
@@ -112,12 +113,12 @@ def create_sequences(df):
 
             current_close = window.iloc[-1]['Close']
             next_close = group.iloc[i + WINDOW_SIZE]['Close']
-
+            
             if current_close < next_close:
                 target = 1
             else:
                 target = 0
-
+            
             X.append(window[FEATURES].values)
             y.append(target)
 

@@ -6,6 +6,8 @@ token.txt
 data/
 __pycache__/
 *.pyc
+models/
+*.keras
 
 ideas.txt
 test.py
