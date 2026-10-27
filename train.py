@@ -1,4 +1,4 @@
-from src import get_raw_data, preprocessing, model
+from src import get_raw_data, preprocessing, model, evaluate
 from datetime import datetime, timedelta
 import os
 import sys
@@ -44,3 +44,5 @@ train_df, val_df, test_df = preprocessing.preprocess(raw_data)
 datasets = preprocessing.create_sequences(train_df, val_df, test_df)
 
 model.train_models(datasets)
+
+evaluate.evaluate_models()
