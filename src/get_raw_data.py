@@ -27,14 +27,13 @@ def get_access_token(): # 토큰 발급 함수
             
     # 신규 토큰 발급받기
     url = f'{BASE_URL}/oauth2/tokenP' 
-    headers = {'content-type': 'application/json; charset=UTF-8'}
     bodys = {
         'grant_type': 'client_credentials',
         'appkey': APP_KEY,
         'appsecret': APP_SECRET
     }
 
-    res = requests.post(url, headers = headers, data = json.dumps(bodys))
+    res = requests.post(url, json = bodys)
 
     if res.status_code == 200:
         token = res.json()['access_token']
@@ -42,7 +41,7 @@ def get_access_token(): # 토큰 발급 함수
             f.write(token)
         return token
     else:
-        print(res.status_code)
+        print(f"토큰 발급 중 {res.status_code} 오류 발생!")
         return None
 
 def get_1min_data(token, target_date): # 1분봉 데이터 수집하는 함수
@@ -72,13 +71,13 @@ def get_1min_data(token, target_date): # 1분봉 데이터 수집하는 함수
         res = requests.get(url, headers = headers, params = params)
 
         if res.status_code != 200:
-            print(f"{res.status_code} 오류 발생!")
+            print(f"1분봉 데이터 들고오는 중 {res.status_code} 오류 발생!")
             break
 
         raw_data = res.json()
 
         if 'output2' not in raw_data or raw_data['output2'] is None:
-            print("다른 것 수신받음")
+            print("다른 것을 수신받음")
             break
 
         df = pd.DataFrame(raw_data['output2'])
@@ -105,30 +104,32 @@ def get_1min_data(token, target_date): # 1분봉 데이터 수집하는 함수
 
     return full_dfs
 
-def convert_to_5min(df):
+def convert_to_5min(df): # 1분봉 -> 5분봉 변환 함수
     df['DateTime'] = pd.to_datetime(df['Date'] + df['Time'].str.zfill(6), format = '%Y%m%d%H%M%S')
     df.set_index('DateTime', inplace = True)
 
-    df_5min = df.resample('5min', closed = 'right', label = 'right').agg({
+    df_5min = df.resample('5min', closed = 'left', label = 'left').agg({
         'Open': 'first',
         'Close': 'last',
         'High': 'max',
         'Low': 'min',
         'Volume': 'sum'
-    }).dropna()
+    })
+
     df_5min.reset_index(inplace = True)
 
     return df_5min
 
 
-if __name__ == '__main__':
+def get(START, END): # 실행 함수
     token = get_access_token()
 
-    date_list = pd.date_range(start = '20250922', end = '20260922', freq = 'B').strftime("%Y%m%d").tolist()
-
+    target_dates = pd.date_range(start = START, end = END, freq = 'B').strftime("%Y%m%d")
     full_df = []
 
-    for target_date in date_list:
+    failed_dates = []
+
+    for target_date in target_dates:
         try:
             df_1min = get_1min_data(token, target_date)
 
@@ -150,16 +151,21 @@ if __name__ == '__main__':
 
         except Exception as e:
             print(f"{target_date} 오류 발생 -> {e}")
+            failed_dates.append(target_date)
 
-        time.sleep(0.2)
+        finally:
+            time.sleep(0.2)
 
     if full_df:
         master_df = pd.concat(full_df, ignore_index = True)
 
         save_dir = os.path.join(ROOT_DIR, 'data')
         os.makedirs(save_dir, exist_ok = True)
-        file_path = os.path.join(save_dir, 'raw_data.csv')
+        file_path = os.path.join(save_dir, f'raw_data.csv')
 
         master_df.to_csv(file_path, index = False, encoding = 'UTF-8')
 
-        print("1년치 데이터 저장 완료!")
+        print(f"{START} ~ {END} 기간의 1년치 데이터 저장 완료!")
+        print(f"오류난 날짜: {failed_dates}")
+
+        return master_df

@@ -6,9 +6,7 @@ from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Input, Conv1D, LSTM, Dense, Dropout
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
-
-from sklearn.metrics import confusion_matrix
-
+from tensorflow.keras.metrics import AUC
 
 SRC_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(SRC_DIR)
@@ -17,90 +15,94 @@ MODEL_DIR = os.path.join(ROOT_DIR, "models")
 
 os.makedirs(MODEL_DIR, exist_ok=True)
 
-# 모델 성능 평가를 위해 시드 고정
-np.random.seed(42)
-tf.random.set_seed(42)
+SEED = 42
+EPOCHS = 50
+BATCH_SIZE = 64
 
-# 데이터 가져오기
-train_data = np.load(os.path.join(DATA_DIR, 'train.npz'))
-val_data = np.load(os.path.join(DATA_DIR, 'val.npz'))
-test_data = np.load(os.path.join(DATA_DIR, 'test.npz'))
 
-X_train, y_train = train_data['X'], train_data['y']
-X_val, y_val = val_data['X'], val_data['y']
-X_test, y_test = test_data['X'], test_data['y']
+def build_classifier(input_shape):
+    model = Sequential([
+        Input(shape = input_shape),
+        Conv1D(filters = 32, kernel_size = 3, padding = "same", activation = "relu"),
+        Conv1D(filters = 64, kernel_size = 3, padding = "same", activation = "relu"),
+        LSTM(64),
+        Dense(64, activation = "relu"),
+        Dropout(0.3),
+        Dense(1, activation = "sigmoid")
+    ])
 
-input_shape = X_train.shape[1:]
+    model.compile(optimizer = Adam(learning_rate=0.001), loss = "binary_crossentropy", metrics = ["accuracy", AUC()])
 
-# 모델 설정
-model = Sequential([
-    Input(shape = input_shape),
+    return model
 
-    Conv1D(
-        filters = 32,
-        kernel_size = 3,
-        padding = 'same',
-        activation = 'relu'
-    ),
 
-    Conv1D(
-        filters = 64,
-        kernel_size = 3,
-        padding = 'same',
-        activation = 'relu'
-    ),
+def build_regressor(input_shape):
+    model = Sequential([
+        Input(shape = input_shape),
+        Conv1D(filters = 32, kernel_size = 3, padding = "same", activation = "relu"),
+        Conv1D(filters = 64, kernel_size = 3, padding = "same", activation = "relu"),
+        LSTM(64),
+        Dense(64, activation = "relu"),
+        Dropout(0.3),
+        Dense(1, activation = "linear")
+    ])
 
-    LSTM(64),
+    model.compile(optimizer = Adam(learning_rate = 0.001), loss = "mse", metrics = ["mae"])
 
-    Dense(64, activation = 'relu'),
+    return model
 
-    Dropout(0.3),
 
-    Dense(1, activation = 'sigmoid')
-])
+def train_model(model, X_train, y_train, X_val, y_val, name):
+    print(f"[{name} 모델 학습 시작]\n")
 
-model.summary()
+    early_stopping = EarlyStopping(monitor = "val_loss", patience = 5,restore_best_weights = True)
 
-model.compile(optimizer = Adam(learning_rate = 0.001), loss = 'binary_crossentropy', metrics = ['accuracy', tf.keras.metrics.AUC(name="auc")])
+    reduce_lr = ReduceLROnPlateau(monitor = "val_loss", factor = 0.5, patience = 2, min_lr = 0.00001)
 
-early_stopping = EarlyStopping(monitor = 'val_loss', patience = 5, restore_best_weights=True)
-reduce_lr = ReduceLROnPlateau(monitor = 'val_loss', factor = 0.5, patience = 2, min_lr = 0.00001)
+    history = model.fit(
+        X_train,
+        y_train,
+        validation_data = (X_val, y_val),
+        epochs = EPOCHS,
+        batch_size = BATCH_SIZE,
+        callbacks = [early_stopping, reduce_lr],
+        shuffle = False
+    )
 
-history = model.fit(X_train, y_train, validation_data = (X_val, y_val), epochs = 50, batch_size = 64, callbacks = [early_stopping, reduce_lr], shuffle = False)
+    model_path = os.path.join(MODEL_DIR, f"{name}.keras")
+    model.save(model_path)
 
-# 성능 확인
-print()
-print("==== Validation Evaluation =====")
+    print(f"[{name} 모델 저장 완료]")
 
-val_loss, val_acc, val_auc = model.evaluate(X_val, y_val, verbose = 0)
+    return history
 
-print(f"Val_loss: {val_loss:.4f}")
-print(f"Val_acc: {val_acc:.4f}")
-print(f"Val_AUC: {val_auc:.4f}")
 
-print()
-print("==== Test Evaluation ====")
+def train_models(datasets):
+    tf.keras.utils.set_random_seed(SEED)
 
-test_loss, test_accuracy, test_auc = model.evaluate(X_test, y_test, verbose=0)
+    X_train = datasets["train"]["X"]
+    X_val = datasets["val"]["X"]
 
-print(f"Test_loss: {test_loss:.4f}")
-print(f"Test_acc: {test_accuracy:.4f}")
-print(f"Test_AUC: {test_auc:.4f}")
+    y_class_train = datasets["train"]["y_class"]
+    y_class_val = datasets["val"]["y_class"]
 
-y_prob = model.predict(X_test, verbose=0).ravel()
-y_pred = (y_prob >= 0.5).astype(int)
+    y_reg_train = datasets["train"]["y_reg"]
+    y_reg_val = datasets["val"]["y_reg"]
 
-print()
-print("==== Confusion Matrix ====")
+    input_shape = X_train.shape[1:]
 
-cm = confusion_matrix(y_test, y_pred)
+    # 분류 모델
+    classifier = build_classifier(input_shape)
 
-print(cm)
+    classifier.summary()
 
-# 모델 저장
-model_path = os.path.join(MODEL_DIR, "model.keras")
+    train_model(classifier, X_train, y_class_train, X_val, y_class_val, name = "classifier")
 
-model.save(model_path)
+    # 회귀 모델
+    regressor = build_regressor(input_shape)
 
-print()
-print(f"[모델 저장 완료] {model_path}")
+    regressor.summary()
+
+    train_model(regressor, X_train, y_reg_train, X_val, y_reg_val, name = "regressor")
+
+    print("[모든 모델 학습 및 저장 완료!]")

@@ -12,54 +12,58 @@ RAW_DATA_PATH = os.path.join(DATA_DIR, 'raw_data.csv')
 
 FEATURES = ["Open_return", "Close_return", "High_return", "Low_return", "Volume_return"]
 
-WINDOW_SIZE = 10
+WINDOW_SIZE = 20
 
-def get_raw_data(): # 원시데이터 가져오는 함수
-    print("[원시 데이터 가져오는 중..]\n")
-
-    raw_data = pd.read_csv(RAW_DATA_PATH)
-
-    if raw_data.empty:
-        print("[csv파일이 비어있습니다.]\n")
-    else:
-        print(f"{raw_data.head()}\n")
-        print("[원시 데이터 가져오기 완료!]\n")
-
-    return raw_data
-
-def remove_incomplete_days(df): # 불완전한 데이터 지우는 함수
+def remove_incomplete_days(df):
     print("[불완전한 날짜 삭제 중...]\n")
 
-    df['DateTime'] = pd.to_datetime(df['DateTime'])
-    df['Date'] = df['DateTime'].dt.date
+    df = df.copy()
 
-    df = df.sort_values('DateTime').reset_index(drop=True)
+    df["DateTime"] = pd.to_datetime(df["DateTime"])
+    df["Date"] = df["DateTime"].dt.date
 
-    row_counts = df.groupby('Date').size()
+    df = df.sort_values("DateTime").reset_index(drop=True)
 
-    vaild_index = row_counts[row_counts == 77].index
+    # 날짜별 5분봉 개수
+    row_counts = df.groupby("Date").size()
 
-    df.set_index('Date', inplace = True)
+    # OHLC 중 하나라도 NaN이 존재하는 날짜
+    missing_dates = df.loc[
+        df[["Open", "Close", "High", "Low"]].isna().any(axis=1),
+        "Date"
+    ].unique()
 
-    complete_days_df = df.loc[vaild_index].copy()
-    complete_days_df.reset_index(inplace = True)
-    complete_days_df.drop(columns = 'Date', inplace = True)
+    valid_dates = row_counts[
+        (row_counts == 76) &
+        (~row_counts.index.isin(missing_dates))
+    ].index
 
-    incomplete_days = row_counts[row_counts != 77]
+    complete_days_df = df[df["Date"].isin(valid_dates)].copy()
 
-    for date, cnt in incomplete_days.items():
-        print(f"삭제된 날짜: {date}, 데이터 개수: {cnt}")
+    removed_dates = row_counts.index.difference(valid_dates)
 
-    print("\n[불완전한 날짜 삭제 완료!]\n")
+    for date in removed_dates:
+        print(f"삭제된 날짜: {date}")
+
+    complete_days_df.drop(columns="Date", inplace=True)
+    complete_days_df.reset_index(drop=True, inplace=True)
+
+    print(f"\n삭제된 거래일: {len(removed_dates)}일")
+    print("[불완전한 날짜 삭제 완료!]\n")
 
     return complete_days_df
 
 def split_train_val_test(df): # 데이터셋 분할 함수
     print("[데이터셋 분할 중..]\n")
 
-    train_df = df[(df['DateTime'] >= '2025-09-01') & (df['DateTime'] < '2026-05-01')].copy()
-    val_df = df[(df['DateTime'] >= '2026-05-01') & (df['DateTime'] < '2026-07-01')].copy()
-    test_df = df[(df['DateTime'] >= '2026-07-01') & (df['DateTime'] < '2026-09-22')].copy()
+    start_date = df["DateTime"].min().normalize()
+
+    train_end = start_date + pd.DateOffset(months = 8)
+    val_end = train_end + pd.DateOffset(months = 2)
+
+    train_df = df[df['DateTime'] < train_end].copy()
+    val_df = df[(df['DateTime'] >= train_end) & (df['DateTime'] < val_end)].copy()
+    test_df = df[df['DateTime'] >= val_end].copy()
 
     print(f"(train셋 개수: {train_df.shape[0]})")
     print(f"(val셋 개수: {val_df.shape[0]})")
@@ -68,7 +72,7 @@ def split_train_val_test(df): # 데이터셋 분할 함수
 
     return train_df, val_df, test_df
 
-def create_features(train_df, val_df, test_df):
+def create_features(train_df, val_df, test_df): # return feature 만드는 함수
     print("[feature 생성 중...]\n")
 
     for data in [train_df, val_df, test_df]:
@@ -79,6 +83,7 @@ def create_features(train_df, val_df, test_df):
         data["Volume_return"] = data.groupby(data["DateTime"].dt.date)["Volume"].pct_change()
 
     for data in [train_df, val_df, test_df]:
+        data.replace([np.inf, -np.inf], np.nan, inplace=True)
         data.dropna(subset=FEATURES, inplace=True)
         data.reset_index(drop=True, inplace=True)
 
@@ -86,16 +91,12 @@ def create_features(train_df, val_df, test_df):
 
     return train_df, val_df, test_df
 
-def scaling(train_df, val_df, test_df):
+def scaling(train_df, val_df, test_df): # 표준화 함수
     print("[표준화 중..]\n")
-
-    train_df[FEATURES] = train_df[FEATURES].astype(float)
-    val_df[FEATURES] = val_df[FEATURES].astype(float)
-    test_df[FEATURES] = test_df[FEATURES].astype(float)
 
     scaler = StandardScaler()
 
-    # Train으로만 기준 계산
+    # Train으로만 기준
     scaler.fit(train_df[FEATURES])
 
     # 동일한 scaler 적용
@@ -106,54 +107,50 @@ def scaling(train_df, val_df, test_df):
     scaler_path = os.path.join(DATA_DIR, "scaler.pkl")
     joblib.dump(scaler, scaler_path)
 
-    print(f"{train_df.head()}\n")
     print("[표준화 완료!]\n")
 
     return train_df, val_df, test_df
 
-def create_sequences(df):
+def create_sequences(train_df, val_df, test_df):
     print("[시퀀스 데이터 생성 중...]\n")
 
-    X = []
-    y = []
+    datasets = {}
 
-    for date, group in df.groupby(df["DateTime"].dt.date):
+    for name, data in [("train", train_df), ("val", val_df), ("test", test_df)]:
+        X = []
+        y_class = []
+        y_reg = []
 
-        group = group.sort_values("DateTime").reset_index(drop=True)
+        for date, group in data.groupby(data["DateTime"].dt.date):
+            group = group.sort_values("DateTime").reset_index(drop=True)
 
-        for i in range(len(group) - WINDOW_SIZE):
+            for i in range(len(group) - WINDOW_SIZE):
+                window = group.iloc[i:i + WINDOW_SIZE]
 
-            window = group.iloc[i:i + WINDOW_SIZE]
+                current_close = window.iloc[-1]["Close"]
+                next_close = group.iloc[i + WINDOW_SIZE]["Close"]
 
-            # target은 원래 Close로 계산
-            current_close = window.iloc[-1]["Close"]
-            next_close = group.iloc[i + WINDOW_SIZE]["Close"]
+                target_class = int(next_close > current_close)
 
-            if current_close < next_close:
-                target = 1
-            else:
-                target = 0
+                target_reg = (next_close - current_close) / current_close
 
-            X.append(window[FEATURES].values)
-            y.append(target)
+                X.append(window[FEATURES].values)
+                y_class.append(target_class)
+                y_reg.append(target_reg)
 
-    X = np.array(X)
-    y = np.array(y)
+        X = np.array(X)
+        y_class = np.array(y_class)
+        y_reg = np.array(y_reg)
 
-    print(f"X의 shape: {X.shape}")
-    print(f"y의 shape: {y.shape}\n")
+        np.savez(os.path.join(DATA_DIR, f"{name}.npz"), X = X, y_class = y_class, y_reg = y_reg)
 
-    print(f"상승 데이터의 개수: {np.sum(y == 1)}")
-    print(f"하락/유지 데이터의 개수: {np.sum(y == 0)}\n")
+        datasets[name] = {"X": X, "y_class": y_class, "y_reg": y_reg}
 
-    print("[시퀀스 데이터 생성 완료!]\n")
+    print("\n[시퀀스 데이터 생성 및 저장 완료!]\n")
 
-    return X, y
+    return datasets
 
-
-if __name__ == '__main__':
-    raw_data = get_raw_data()
-
+def preprocess(raw_data):
     complete_days_df = remove_incomplete_days(raw_data)
 
     train_df, val_df, test_df = split_train_val_test(complete_days_df)
@@ -162,12 +159,4 @@ if __name__ == '__main__':
 
     train_df, val_df, test_df = scaling(train_df, val_df, test_df)
 
-    X_train, y_train = create_sequences(train_df)
-    X_val, y_val = create_sequences(val_df)
-    X_test, y_test = create_sequences(test_df)
-
-    np.savez(os.path.join(DATA_DIR, 'train.npz'), X = X_train, y = y_train)
-    np.savez(os.path.join(DATA_DIR, 'val.npz'), X = X_val, y = y_val)
-    np.savez(os.path.join(DATA_DIR, 'test.npz'), X = X_test, y = y_test)
-
-    print("[데이터셋 저장 완료!]")
+    return train_df, val_df, test_df
