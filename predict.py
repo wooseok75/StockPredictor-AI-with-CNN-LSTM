@@ -23,39 +23,6 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(ROOT_DIR, 'data')
 RAW_DATA_PATH = os.path.join(DATA_DIR, 'raw_data.csv')
 
-def create_dummy_data():
-    np.random.seed(42)
-
-    n = 21
-
-    # 5분 간격 날짜 생성
-    dates = pd.date_range(
-        start="2026-10-27 10:00:00",
-        periods=n,
-        freq="5min"
-    )
-
-    # 가상의 주가 생성
-    close = 88905 + np.cumsum(np.random.randint(-100, 101, size=n))
-    open_price = np.r_[88905, close[:-1]]
-
-    high = np.maximum(open_price, close) + np.random.randint(1, 50, size=n)
-    low = np.minimum(open_price, close) - np.random.randint(1, 50, size=n)
-
-    volume = np.random.randint(10000, 150000, size=n)
-
-    df = pd.DataFrame({
-        "DateTime": dates,
-        "Open": open_price,
-        "Close": close,
-        "High": high,
-        "Low": low,
-        "Volume": volume
-    })
-
-    return df
-
-
 def check_time():
     now = datetime.now()
     h = now.hour
@@ -65,6 +32,7 @@ def check_time():
 
     if time < 1045 or time > 1515:
         print("예측 가능한 시간대가 아닙니다.")
+        sys.exit()
 
     url = f"{BASEURL}/uapi/domestic-stock/v1/quotations/chk-holiday"
     headers = {
@@ -178,7 +146,7 @@ if __name__ == '__main__':
 
     check_time()
 
-    df = create_dummy_data()
+    df = get_realtime_data(token)
 
     if df.isna().any().any():
         print("결측값이 존재합니다.")
@@ -198,3 +166,4 @@ if __name__ == '__main__':
 
     print(f"상승 확률: {classifer_output * 100:.2f}%")
     print(f"예상 수익률: {regressor_output * 100:.3f}%")
+    
