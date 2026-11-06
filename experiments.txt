@@ -59,7 +59,7 @@ baseline RMSE: 0.003270
 방향 Accuracy: 0.4958
 
 
-2. [Feature 변경]: OHLCV -> OHLCV_RETURN
+2. [Feature 변경]: OHLCV -> OHLCV_RETURN으로 변경함.
 
 < 성능 기록 >
 [분류 모델 - Validation]
@@ -75,3 +75,38 @@ RMSE: 0.003278
 baseline MAE: 0.002347
 baseline RMSE: 0.003247
 방향 Accuracy: 0.4852
+
+
+3. [activation 변경]: relu -> silu로 변경함.
+
+< 성능 기록 >
+[분류 모델 - Validation]
+Accuracy: 0.5072
+AUC: 0.4837
+혼동행렬 (0 = 하락/유지, 1 = 상승):
+[[875 204]
+ [826 185]]
+
+[회귀 모델 - Validation]
+MAE: 0.002374
+RMSE: 0.003280
+baseline MAE: 0.002347
+baseline RMSE: 0.003247
+방향 Accuracy: 0.4919
+
+4. [Samsung, Hynix 종목 추가]: Feature 수도 5 -> 15로 늘어남.
+
+< 성능 기록 >
+[분류 모델 - Validation]
+Accuracy: 0.5116
+AUC: 0.4915
+혼동행렬 (0 = 하락/유지, 1 = 상승):
+[[809 212]
+ [755 204]]
+
+[회귀 모델 - Validation]
+MAE: 0.002384
+RMSE: 0.003287
+baseline MAE: 0.002298
+baseline RMSE: 0.003187
+방향 Accuracy: 0.4828

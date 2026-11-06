@@ -10,8 +10,14 @@ DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
 # 설정변수 선언
 WINDOW_SIZE = 20
-FEATURES = ['Open', 'Close', 'High', 'Low', 'Volume']
-RETURN_FEATURES = ['Open_return', 'Close_return', 'High_return', 'Low_return', 'Volume_return']
+
+FEATURES = ['Open', 'Close', 'High', 'Low', 'Volume',
+            'Samsung_Open', 'Samsung_Close', 'Samsung_High', 'Samsung_Low', 'Samsung_Volume',
+            'Hynix_Open', 'Hynix_Close', 'Hynix_High', 'Hynix_Low', 'Hynix_Volume']
+
+RETURN_FEATURES = ['Open_return', 'Close_return', 'High_return', 'Low_return', 'Volume_return',
+                   'Samsung_Open_return', 'Samsung_Close_return', 'Samsung_High_return', 'Samsung_Low_return', 'Samsung_Volume_return',
+                   'Hynix_Open_return', 'Hynix_Close_return', 'Hynix_High_return', 'Hynix_Low_return', 'Hynix_Volume_return']
 
 # 데이터셋 분할 함수
 def split_data(df):
@@ -82,6 +88,18 @@ def add_return_features(df):
     df['High_return'] = df.groupby(dates)['High'].pct_change()
     df['Low_return'] = df.groupby(dates)['Low'].pct_change()
     df['Volume_return'] = df.groupby(dates)['Volume'].pct_change()
+
+    df['Samsung_Open_return'] = df.groupby(dates)['Samsung_Open'].pct_change()
+    df['Samsung_Close_return'] = df.groupby(dates)['Samsung_Close'].pct_change()
+    df['Samsung_High_return'] = df.groupby(dates)['Samsung_High'].pct_change()
+    df['Samsung_Low_return'] = df.groupby(dates)['Samsung_Low'].pct_change()
+    df['Samsung_Volume_return'] = df.groupby(dates)['Samsung_Volume'].pct_change()
+
+    df['Hynix_Open_return'] = df.groupby(dates)['Hynix_Open'].pct_change()
+    df['Hynix_Close_return'] = df.groupby(dates)['Hynix_Close'].pct_change()
+    df['Hynix_High_return'] = df.groupby(dates)['Hynix_High'].pct_change()
+    df['Hynix_Low_return'] = df.groupby(dates)['Hynix_Low'].pct_change()
+    df['Hynix_Volume_return'] = df.groupby(dates)['Hynix_Volume'].pct_change()
 
     df = df.dropna(subset=RETURN_FEATURES).reset_index(drop=True)
     

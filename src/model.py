@@ -5,7 +5,7 @@ from tensorflow.keras.layers import Dense, Conv1D, LSTM, Dropout, Input
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.metrics import AUC
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
-
+from sklearn.metrics import roc_auc_score
 # 경로 설정
 MODEL_DIR = Path(__file__).resolve().parent.parent / "models"
 
@@ -18,10 +18,10 @@ SEED = 42
 def build_classifier(input_shape):
     classifier = Sequential([
         Input(shape = input_shape),
-        Conv1D(32, 3, padding = "same", activation = "relu"),
-        Conv1D(64, 3, padding = "same", activation = "relu"),
+        Conv1D(32, 3, padding = "same", activation = "silu"),
+        Conv1D(64, 3, padding = "same", activation = "silu"),
         LSTM(64),
-        Dense(64, activation = "relu"),
+        Dense(64, activation = "silu"),
         Dropout(0.3),
         Dense(1, activation = "sigmoid")
     ])
@@ -34,10 +34,10 @@ def build_classifier(input_shape):
 def build_regressor(input_shape):
     regressor = Sequential([
         Input(shape = input_shape),
-        Conv1D(32, 3, padding = "same", activation = "relu"),
-        Conv1D(64, 3, padding = "same", activation = "relu"),
+        Conv1D(32, 3, padding = "same", activation = "silu"),
+        Conv1D(64, 3, padding = "same", activation = "silu"),
         LSTM(64),
-        Dense(64, activation = "relu"),
+        Dense(64, activation = "silu"),
         Dropout(0.3),
         Dense(1, activation = "linear")
     ])
@@ -86,3 +86,20 @@ def train_models(train_set, val_set):
     train_model(regressor, X_train, y_reg_train, X_val, y_reg_val, "regressor")
 
     print("모든 모델 학습 완료!")
+
+    X_small = X_train[:500]
+    y_small = y_class_train[:500]
+
+    test_model = build_classifier(X_train.shape[1:])
+
+    test_model.fit(
+        X_small,
+        y_small,
+        epochs=200,
+        batch_size=32,
+        verbose=0
+    )
+
+    pred = test_model.predict(X_small, verbose=0).ravel()
+
+    print("Small Train AUC:", roc_auc_score(y_small, pred))

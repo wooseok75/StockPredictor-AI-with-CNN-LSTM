@@ -52,7 +52,7 @@ def get_access_token():
     return token
 
 # 1분봉 수집 함수    
-def get_1min_data(token, target_date):
+def get_1min_data(token, target_date, stock_code):
     all_dfs = []
 
     url = f"{BASE_URL}/uapi/domestic-stock/v1/quotations/inquire-time-dailychartprice"
@@ -69,7 +69,7 @@ def get_1min_data(token, target_date):
     while True:
         params = {
             "FID_COND_MRKT_DIV_CODE": "J",
-            "FID_INPUT_ISCD": "069500",
+            "FID_INPUT_ISCD": stock_code,
             "FID_INPUT_HOUR_1": current_time,
             "FID_INPUT_DATE_1": target_date,
             "FID_PW_DATA_INCU_YN": "N",
@@ -102,7 +102,6 @@ def get_1min_data(token, target_date):
     full_df = pd.concat(all_dfs)
     full_df = full_df.drop(columns = ['acml_tr_pbmn'])
     full_df = full_df.drop_duplicates(subset = ['stck_bsop_date', 'stck_cntg_hour'], keep = 'first')
-    full_df = full_df.dropna()
     full_df.columns = ['Date', 'Time', 'Close', 'Open', 'High', 'Low', 'Volume']
     full_df = full_df[['Date', 'Time', 'Open', 'Close', 'High', 'Low', 'Volume']]
     full_df = full_df[full_df['Time'] != '153000']
@@ -110,10 +109,7 @@ def get_1min_data(token, target_date):
     full_df = full_df[full_df['Volume'] != 0]
     full_df = full_df.sort_values("Time").reset_index(drop = True)
 
-    if len(full_df) == 380:
-        return full_df
-    else: 
-        raise ValueError("데이터에 결측치가 존재합니다.")
+    return full_df
 
 # 1분봉 -> 5분봉 변환 함수
 def convert_to_5min(df):
@@ -125,7 +121,19 @@ def convert_to_5min(df):
         "Close": "last",
         "High": "max",
         "Low": "min",
-        "Volume": "sum"
+        "Volume": "sum",
+
+        'Samsung_Open': 'first',
+        'Samsung_Close': 'last',
+        'Samsung_High': 'max',
+        'Samsung_Low': 'min',
+        'Samsung_Volume': 'sum',
+
+        'Hynix_Open': 'first',
+        'Hynix_Close': 'last',
+        'Hynix_High': 'max',
+        'Hynix_Low': 'min',
+        'Hynix_Volume': 'sum'
     })
     df_5min.reset_index(inplace = True)
     
@@ -138,30 +146,101 @@ def get(START, END):
     collected = []
     failed = []
 
+    kodex_data = {}
+    samsung_data = {}
+    hynix_data = {}
+    
     target_dates = pd.date_range(start = START, end = END, freq = 'B').strftime("%Y%m%d")
 
     for target_date in target_dates:
         try:
-            df_1min = get_1min_data(token, target_date)
-            if df_1min.empty:
+            df = get_1min_data(token, target_date, "069500")
+            if df.empty:
                 print(f"{target_date}: 거래 데이터 없음")
                 continue
 
-            actual_date = df_1min['Date'].iloc[0]
+            actual_date = df['Date'].iloc[0]
 
             if target_date != actual_date:
-                print(f"{target_date}: 데이터 수집 실패 - 공휴일입니다.")
+                print(f"{target_date}: (KODEX200) 데이터 수집 실패 - 공휴일입니다.")
                 continue
 
-            collected.append(convert_to_5min(df_1min))
-            print(f"{target_date}: 데이터 수집 완료")
+            kodex_data[target_date] = df
+            print(f"{target_date}: (KODEX200) 데이터 수집 완료")
 
         except Exception as e:
-            failed.append(target_date)
-            print(f"{target_date}: 데이터 수집 실패 - {e}")
+            print(f"{target_date}: (KODEX200) 데이터 수집 실패 - {e}")
 
         finally:    
             time.sleep(0.2)
+
+    for target_date in target_dates:
+        try:
+            df = get_1min_data(token, target_date, "005930")
+            if df.empty:
+                print(f"{target_date}: 거래 데이터 없음")
+                continue
+    
+            actual_date = df['Date'].iloc[0]
+    
+            if target_date != actual_date:
+                print(f"{target_date}: (삼성전자) 데이터 수집 실패 - 공휴일입니다.")
+                continue
+    
+            samsung_data[target_date] = df
+            print(f"{target_date}: (삼성전자) 데이터 수집 완료")
+    
+        except Exception as e:
+            print(f"{target_date}: (삼성전자) 데이터 수집 실패 - {e}")
+    
+        finally:    
+            time.sleep(0.2)
+
+    for target_date in target_dates:
+        try:
+            df = get_1min_data(token, target_date, "000660")
+            if df.empty:
+                print(f"{target_date}: 거래 데이터 없음")
+                continue
+        
+            actual_date = df['Date'].iloc[0]
+        
+            if target_date != actual_date:
+                print(f"{target_date}: (하이닉스) 데이터 수집 실패 - 공휴일입니다.")
+                continue
+        
+            hynix_data[target_date] = df
+            print(f"{target_date}: (하이닉스) 데이터 수집 완료")
+        
+        except Exception as e:
+            print(f"{target_date}: (하이닉스) 데이터 수집 실패 - {e}")
+        
+        finally:    
+            time.sleep(0.2)
+
+    for target_date in target_dates:
+        try:
+            kodex = kodex_data[target_date].set_index(['Date', 'Time'])
+            samsung = samsung_data[target_date].set_index(['Date', 'Time']).add_prefix('Samsung_')
+            hynix = hynix_data[target_date].set_index(['Date', 'Time']).add_prefix('Hynix_')
+
+            df_1min = pd.concat([kodex, samsung, hynix], axis=1)
+
+            df_1min = df_1min.dropna().sort_index()
+            df_1min = df_1min[(df_1min['Volume'] > 0) & (df_1min['Samsung_Volume'] > 0) & (df_1min['Hynix_Volume'] > 0)]
+            df_1min = df_1min.reset_index()
+
+            if len(df_1min) != 380:
+                raise ValueError(f"1분봉 데이터 불완전: {len(df_1min)}개")
+            
+            df_5min = convert_to_5min(df_1min)
+            collected.append(df_5min)
+
+            print(f'{target_date}: 세 종목 수집 완료')
+
+        except Exception as e:
+            failed.append(target_date)
+            print(f'{target_date}: 데이터 수집 실패 - {e}')
 
     if collected:
         DATA_DIR.mkdir(exist_ok = True)
