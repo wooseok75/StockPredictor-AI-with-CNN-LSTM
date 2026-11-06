@@ -33,7 +33,7 @@ def evaluate_regressor(X_val, y_true):
     print(f"RMSE: {np.sqrt(mean_squared_error(y_true, y_pred)):.6f}")
     print(f"baseline MAE: {mean_absolute_error(y_true, baseline):.6f}")
     print(f"baseline RMSE: {np.sqrt(mean_squared_error(y_true, baseline)):.6f}")
-    print(f"방향 Accuracy: {accuracy_score(y_true > 0, y_pred > 0):.4f}")
+    print(f"방향 Accuracy: {accuracy_score(y_true > 0, y_pred > 0):.4f}\n")
 
 # 실행 함수
 def evaluate_models():
@@ -49,4 +49,3 @@ def evaluate_models():
 # 파일 직접 실행
 if __name__ == "__main__":
     evaluate_models()
-    

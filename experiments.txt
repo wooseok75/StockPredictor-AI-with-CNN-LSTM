@@ -1,4 +1,4 @@
-0. [Base Model]: 최소한의 기능만 있다.
+0. [Base Model]: 최소한의 기능만 있음.
 
 < 설정 기록 >
 학습 종목: KODEX200 (5분봉)
@@ -6,7 +6,7 @@
 
 Features = ['Open', 'Close', 'High', 'Low', 'Volume']
 WINDOW_SIZE = 20 (과거 100분)
-EPOCHS = 50
+EPOCHS = 200
 BATCH_SIZE = 64
 SEED = 42
 
@@ -34,8 +34,26 @@ AUC: 0.5082
  [1030    0]]
 
 [회귀 모델 - Validation]
-MAE: 0.002459
-RMSE: 0.003495
+MAE: 0.002390
+RMSE: 0.003329
 baseline MAE: 0.002362
 baseline RMSE: 0.003270
-방향 Accuracy: 0.4934
+방향 Accuracy: 0.5174
+
+
+1. [정규화 추가]: StandardScaler 추가함.
+
+< 성능 기록 >
+[분류 모델 - Validation]
+Accuracy: 0.5150
+AUC: 0.4965
+혼동행렬 (0 = 하락/유지, 1 = 상승):
+[[1060   38]
+ [ 994   36]]
+
+[회귀 모델 - Validation]
+MAE: 0.002392
+RMSE: 0.003311
+baseline MAE: 0.002362
+baseline RMSE: 0.003270
+방향 Accuracy: 0.4958

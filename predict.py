@@ -9,10 +9,12 @@ import requests
 import pandas as pd
 import numpy as np
 import tensorflow as tf
+import joblib
 
 # 경로 설정
 ROOT_DIR = Path(__file__).resolve().parent
 MODEL_DIR = ROOT_DIR / "models"
+DATA_DIR = ROOT_DIR / "data"
 
 # API 설정
 load_dotenv(ROOT_DIR / ".env")
@@ -134,17 +136,24 @@ def get_realtime_data():
             "Volume": "sum"
     })
     df_5min.reset_index(inplace = True)
-    
+
+    scaler = joblib.load(ROOT_DIR / "data" / "scaler.pkl")
+
     X = df_5min[FEATURES].tail(WINDOW_SIZE)
+    X = scaler.transform(X)
     X = np.array(X).reshape(1, WINDOW_SIZE, len(FEATURES))
 
     return X
 
 # 파일 직접 실행
 if __name__ == "__main__":
-    check_time()
+    # check_time()
 
-    X = get_realtime_data()
+    # X = get_realtime_data()
+
+    test_set = np.load(DATA_DIR / "test.npz")
+    X = test_set["X"][0:1]
+    
     print(X, X.shape)
 
     classifier = tf.keras.models.load_model(MODEL_DIR / "classifier.keras", compile = False)

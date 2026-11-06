@@ -2,6 +2,8 @@ from pathlib import Path
 from datetime import timedelta
 import pandas as pd
 import numpy as np
+from sklearn.preprocessing import StandardScaler
+import joblib
 
 # 경로 설정
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
@@ -35,8 +37,8 @@ def create_sequence(df, file_name = None):
     for _, group in df.groupby(df['DateTime'].dt.date):
         for i in range(len(group) - WINDOW_SIZE):
             window = group.iloc[i:i+WINDOW_SIZE]
-            current_close = window['Close'].iloc[-1]
-            next_close = group['Close'].iloc[i+WINDOW_SIZE]
+            current_close = window['Close_copy'].iloc[-1]
+            next_close = group['Close_copy'].iloc[i+WINDOW_SIZE]
 
             X.append(window[FEATURES].to_numpy())
             y_class.append(int(current_close < next_close))
@@ -57,9 +59,26 @@ def create_sequence(df, file_name = None):
 
     return dataset
 
+# 정규화 함수
+def Scaling(train_df, val_df, test_df):
+    Scaler = StandardScaler()
+
+    for df in [train_df, val_df, test_df]:
+        df['Close_copy'] = df['Close'].copy()
+
+    train_df[FEATURES] = Scaler.fit_transform(train_df[FEATURES])
+    val_df[FEATURES] = Scaler.transform(val_df[FEATURES])
+    test_df[FEATURES] = Scaler.transform(test_df[FEATURES])
+
+    joblib.dump(Scaler, DATA_DIR / "scaler.pkl")
+
+    return train_df, val_df, test_df
+
 # 실행 함수
 def preprocessing(raw_data):
     train_df, val_df, test_df = split_data(raw_data)
+
+    train_df, val_df, test_df = Scaling(train_df, val_df, test_df)
 
     train_set = create_sequence(train_df, "train")
     val_set = create_sequence(val_df, "val")
