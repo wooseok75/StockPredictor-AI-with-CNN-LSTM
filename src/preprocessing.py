@@ -11,6 +11,7 @@ DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 # 설정변수 선언
 WINDOW_SIZE = 20
 FEATURES = ['Open', 'Close', 'High', 'Low', 'Volume']
+RETURN_FEATURES = ['Open_return', 'Close_return', 'High_return', 'Low_return', 'Volume_return']
 
 # 데이터셋 분할 함수
 def split_data(df):
@@ -37,10 +38,10 @@ def create_sequence(df, file_name = None):
     for _, group in df.groupby(df['DateTime'].dt.date):
         for i in range(len(group) - WINDOW_SIZE):
             window = group.iloc[i:i+WINDOW_SIZE]
-            current_close = window['Close_copy'].iloc[-1]
-            next_close = group['Close_copy'].iloc[i+WINDOW_SIZE]
+            current_close = window['Close'].iloc[-1]
+            next_close = group['Close'].iloc[i+WINDOW_SIZE]
 
-            X.append(window[FEATURES].to_numpy())
+            X.append(window[RETURN_FEATURES].to_numpy())
             y_class.append(int(current_close < next_close))
             y_reg.append((next_close - current_close) / current_close)
 
@@ -63,20 +64,36 @@ def create_sequence(df, file_name = None):
 def Scaling(train_df, val_df, test_df):
     Scaler = StandardScaler()
 
-    for df in [train_df, val_df, test_df]:
-        df['Close_copy'] = df['Close'].copy()
-
-    train_df[FEATURES] = Scaler.fit_transform(train_df[FEATURES])
-    val_df[FEATURES] = Scaler.transform(val_df[FEATURES])
-    test_df[FEATURES] = Scaler.transform(test_df[FEATURES])
+    train_df[RETURN_FEATURES] = Scaler.fit_transform(train_df[RETURN_FEATURES])
+    val_df[RETURN_FEATURES] = Scaler.transform(val_df[RETURN_FEATURES])
+    test_df[RETURN_FEATURES] = Scaler.transform(test_df[RETURN_FEATURES])
 
     joblib.dump(Scaler, DATA_DIR / "scaler.pkl")
 
     return train_df, val_df, test_df
 
+def add_return_features(df):
+    df = df.copy()
+
+    dates = df['DateTime'].dt.date
+
+    df['Open_return'] = df.groupby(dates)['Open'].pct_change()
+    df['Close_return'] = df.groupby(dates)['Close'].pct_change()
+    df['High_return'] = df.groupby(dates)['High'].pct_change()
+    df['Low_return'] = df.groupby(dates)['Low'].pct_change()
+    df['Volume_return'] = df.groupby(dates)['Volume'].pct_change()
+
+    df = df.dropna(subset=RETURN_FEATURES).reset_index(drop=True)
+    
+    return df
+
 # 실행 함수
 def preprocessing(raw_data):
     train_df, val_df, test_df = split_data(raw_data)
+
+    train_df = add_return_features(train_df)
+    val_df = add_return_features(val_df)
+    test_df = add_return_features(test_df)
 
     train_df, val_df, test_df = Scaling(train_df, val_df, test_df)
 

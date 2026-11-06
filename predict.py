@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 import joblib
+from src.preprocessing import add_return_features, RETURN_FEATURES
 
 # 경로 설정
 ROOT_DIR = Path(__file__).resolve().parent
@@ -137,11 +138,55 @@ def get_realtime_data():
     })
     df_5min.reset_index(inplace = True)
 
-    scaler = joblib.load(ROOT_DIR / "data" / "scaler.pkl")
+    df_5min = add_return_features(df_5min)
 
-    X = df_5min[FEATURES].tail(WINDOW_SIZE)
+    scaler = joblib.load(DATA_DIR / "scaler.pkl")
+
+    X = df_5min[RETURN_FEATURES].tail(WINDOW_SIZE)
     X = scaler.transform(X)
-    X = np.array(X).reshape(1, WINDOW_SIZE, len(FEATURES))
+    X = np.array(X).reshape(1, WINDOW_SIZE, len(RETURN_FEATURES))
+
+    return X
+
+def get_dummy_data():
+    np.random.seed(42)
+
+    # 21개의 5분봉 생성 (첫 행은 변화율 계산 후 제거)
+    n = WINDOW_SIZE + 1
+
+    # 5분봉 시간 생성
+    times = pd.date_range(
+        start="2026-11-06 10:00:00",
+        periods=n,
+        freq="5min"
+    )
+
+    # 가격과 거래량 생성
+    close = 80000 + np.cumsum(np.random.normal(0, 100, n))
+    open_price = np.r_[80000, close[:-1]]
+    high = np.maximum(open_price, close) + np.random.uniform(10, 80, n)
+    low = np.minimum(open_price, close) - np.random.uniform(10, 80, n)
+    volume = np.random.randint(100000, 500000, n)
+
+    # 5분봉 DataFrame
+    df_5min = pd.DataFrame({
+        "DateTime": times,
+        "Open": open_price,
+        "Close": close,
+        "High": high,
+        "Low": low,
+        "Volume": volume
+    })
+
+    # 변화율 피처 생성
+    df_5min = add_return_features(df_5min)
+
+    # 학습에 사용한 StandardScaler 적용
+    scaler = joblib.load(DATA_DIR / "scaler.pkl")
+
+    X = df_5min[RETURN_FEATURES].tail(WINDOW_SIZE)
+    X = scaler.transform(X)
+    X = X.reshape(1, WINDOW_SIZE, len(RETURN_FEATURES))
 
     return X
 
@@ -151,9 +196,8 @@ if __name__ == "__main__":
 
     # X = get_realtime_data()
 
-    test_set = np.load(DATA_DIR / "test.npz")
-    X = test_set["X"][0:1]
-    
+    X = get_dummy_data()
+
     print(X, X.shape)
 
     classifier = tf.keras.models.load_model(MODEL_DIR / "classifier.keras", compile = False)

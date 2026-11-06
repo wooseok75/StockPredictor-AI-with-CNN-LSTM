@@ -57,3 +57,21 @@ RMSE: 0.003311
 baseline MAE: 0.002362
 baseline RMSE: 0.003270
 방향 Accuracy: 0.4958
+
+
+2. [Feature 변경]: OHLCV -> OHLCV_RETURN
+
+< 성능 기록 >
+[분류 모델 - Validation]
+Accuracy: 0.5158
+AUC: 0.4862
+혼동행렬 (0 = 하락/유지, 1 = 상승):
+[[942 137]
+ [875 136]]
+
+[회귀 모델 - Validation]
+MAE: 0.002366
+RMSE: 0.003278
+baseline MAE: 0.002347
+baseline RMSE: 0.003247
+방향 Accuracy: 0.4852
