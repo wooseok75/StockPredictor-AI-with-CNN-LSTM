@@ -16,7 +16,7 @@ pip install tensorflow pandas numpy scikit-learn requests python-dotenv
 
 ### 2. API 키 설정
 
-[text](https://apiportal.koreainvestment.com)
+[한국투자증권 KIS OpenAPI 포털](https://apiportal.koreainvestment.com)
 한국투자증권 KIS OpenAPI에서 **APP KEY**와 **APP SECRET**을 발급받습니다.
 
 프로젝트 폴더의 `.env.example`을 복사해 이름을 `.env`로 변경합니다.
